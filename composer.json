@@ -1,0 +1,27 @@
+{
+  "name": "twohill/silverstripe-nestedcontrollers",
+  "description": "Base for easily setting up CRUD pages in the front end using nested controllers",
+  "keywords": [
+    "silverstripe",
+    "CRUD",
+    "nested"
+  ],
+  "license": "BSD-3-Clause",
+  "minimum-stability": "dev",
+  "type": "silverstripe-vendormodule",
+  "homepage": "https://github.com/twohill/silverstripe-nestedcontrollers",
+  "authors": [
+    {"name": "Al Twohill", "email": "al@twohill.nz"}
+  ],
+  "support": {
+    "issues": "https://github.com/twohill/silverstripe-nestedcontrollers/issues"
+  },
+  "require": {
+    "silverstripe/vendor-plugin": "^1.0",
+    "silverstripe/framework": "^4",
+    "silverstripe/cms": "^4"
+  },
+  "extra": {
+    "installer-name": "nestedcontrollers"
+  }
+}
