@@ -47,7 +47,7 @@ class NestedCollectionController extends Controller
     protected $request;
     public $Title;
 
-    protected static $url_handlers = array(
+    private static $url_handlers = array(
         '' => 'index',
         '$Action' => 'handleActionOrID',
     );
@@ -118,14 +118,15 @@ class NestedCollectionController extends Controller
         }
     }
 
-
     /**
-     * Link fragment
+     * Returns a link to this controller
      *
+     * @param string $action Optional action
+     * @return string
      */
-    public function Link()
+    public function Link($action = null)
     {
-        return Controller::join_links($this->parentController->Link(), "/{$this->urlSegment}/");
+        return Controller::join_links($this->parentController->Link(), "/{$this->urlSegment}/{$action}");
     }
 
     /**

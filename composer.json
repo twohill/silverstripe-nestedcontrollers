@@ -11,7 +11,10 @@
   "type": "silverstripe-vendormodule",
   "homepage": "https://github.com/twohill/silverstripe-nestedcontrollers",
   "authors": [
-    {"name": "Al Twohill", "email": "al@twohill.nz"}
+    {
+      "name": "Al Twohill",
+      "email": "al@twohill.nz"
+    }
   ],
   "support": {
     "issues": "https://github.com/twohill/silverstripe-nestedcontrollers/issues"
