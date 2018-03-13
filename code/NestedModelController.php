@@ -36,7 +36,7 @@ class NestedModelController extends Controller
         'delete',
         'Form',
     );
-    protected static $url_handlers = array(
+    private static $url_handlers = array(
         '' => 'index',
         '$Action//$ID' => 'handleAction'
     );
@@ -96,11 +96,13 @@ class NestedModelController extends Controller
     /**
      * Link fragment - appends the current record ID to the URL.
      *
+     * @param string $action Optional action
+     * @return string
      */
-    public function Link()
+    public function Link($action = null)
     {
         if ($this->currentRecord) {
-            return Controller::join_links($this->parentController->Link(), "/{$this->currentRecord->ID}");
+            return Controller::join_links($this->parentController->Link(), "/{$this->currentRecord->ID}/{$action}");
         } else {
             return $this->parentController->Link();
         }
