@@ -60,14 +60,14 @@ class NestedCollectionController extends Controller
      * Delegate to different control flow, depending on whether the
      * URL parameter is a number (record id) or string (action).
      *
-     * @param unknown_type $request
-     * @return unknown
+     * @param HTTPRequest $request
+     * @return \SilverStripe\Control\HTTPResponse|\SilverStripe\ORM\FieldType\DBHTMLText
      */
     function handleActionOrID($request)
     {
         if (is_numeric($request->param('Action'))) {
-            $controller = $this->stat('recordController');
-            return new $controller($this, $this->stat('recordType'), $request);
+            $controller = $this->config()->get('recordController');
+            return new $controller($this, $this->config()->get('recordType'), $request);
         } else {
             return $this->handleAction($request, null);
         }
@@ -78,7 +78,7 @@ class NestedCollectionController extends Controller
      * usually this is a page
      *
      * @param Controller $parentController
-     * @param SS_HTTPRequest $request
+     * @param HTTPRequest $request
      */
     public function __construct(Controller $parentController, HTTPRequest $request)
     {
@@ -95,17 +95,25 @@ class NestedCollectionController extends Controller
      * Overloading __get() and __call() to support nested controllers,
      * e.g. so we can still get the main site menu
      * Also allows RecordType() to return the currentRecord
+     * @param $field
+     * @return mixed
      */
     public function __get($field)
     {
         if ($this->hasMethod($funcName = "get$field")) {
             return $this->$funcName();
-        } else if ($this->hasField($field)) {
-            return $this->getField($field);
-        } else if ($this->failover) {
-            return $this->failover->$field;
-        } else if ($this->parentController) {
-            return $this->parentController->__get($field);
+        } else {
+            if ($this->hasField($field)) {
+                return $this->getField($field);
+            } else {
+                if ($this->failover) {
+                    return $this->failover->$field;
+                } else {
+                    if ($this->parentController) {
+                        return $this->parentController->__get($field);
+                    }
+                }
+            }
         }
     }
 
@@ -113,8 +121,10 @@ class NestedCollectionController extends Controller
     {
         if ($this->hasMethod($funcName)) {
             return call_user_func_array(array(&$this, $funcName), $args);
-        } else if ($this->parentController->hasMethod($funcName)) {
-            return call_user_func_array(array(&$this->parentController, $funcName), $args);
+        } else {
+            if ($this->parentController->hasMethod($funcName)) {
+                return call_user_func_array(array(&$this->parentController, $funcName), $args);
+            }
         }
     }
 
@@ -133,17 +143,15 @@ class NestedCollectionController extends Controller
      * Gets all the records and returns them, paginated
      *
      * @return PaginatedList
+     * @throws \Exception
      */
     public function getAllRecords()
     {
-        if (isset($_GET['letter'])) {
-            $SQL_where = $this->stat('sort_on') . " LIKE '" . Convert::raw2sql($_GET['letter'][0]) . "%'";
-        } else {
-            $SQL_where = null;
-        }
-        $recordType = $this->stat('recordType');
-        $filter = create_function('$obj', 'return $obj->canView();');
-        $all = $recordType::get()->filterByCallBack($filter);
+        /* @var DataObject $recordType */
+        $recordType = $this->config()->get('recordType');
+        $all = $recordType::get()->filterByCallBack(function (DataObject $obj) {
+            return $obj->canView();
+        });
 
         return new PaginatedList($all, $this->request);
     }
@@ -152,17 +160,14 @@ class NestedCollectionController extends Controller
      * Gets all editable records and returns them, paginated
      *
      * @return PaginatedList
+     * @throws \Exception
      */
     public function getEditableRecords()
     {
-        if (isset($_GET['letter'])) {
-            $SQL_where = $this->stat('sort_on') . " LIKE '" . Convert::raw2sql($_GET['letter'][0]) . "%'";
-        } else {
-            $SQL_where = null;
-        }
-        $recordType = $this->stat('recordType');
-        $filter = create_function('$obj', 'return $obj->canEdit();');
-        $all = $recordType::get()->filterByCallBack($filter);
+        $recordType = $this->config()->get('recordType');
+        $all = $recordType::get()->filterByCallBack(function (DataObject $obj) {
+            return $obj->canEdit();
+        });
 
         return new PaginatedList($all, $this->request);
     }
@@ -173,7 +178,7 @@ class NestedCollectionController extends Controller
      */
     public function getRecordType()
     {
-        return $this->stat('recordType');
+        return $this->config()->get('recordType');
     }
 
     /**
@@ -209,11 +214,14 @@ class NestedCollectionController extends Controller
      */
     public function canCreate($member = null)
     {
-        return singleton($this->stat('recordType'))->canCreate($member);
+        return singleton($this->config()->get('recordType'))->canCreate($member);
     }
 
     /**
      * URL method to create a new record
+     * @param HTTPRequest $request
+     * @return \SilverStripe\View\ViewableData_Customised|void
+     * @throws HTTPResponse_Exception
      */
     public function create_new($request)
     {
@@ -227,23 +235,32 @@ class NestedCollectionController extends Controller
     /**
      * If a parentcontroller exists, use its main template,
      * and mix in specific collectioncontroller subtemplates.
+     * @param string|int $action
+     * @return SSViewer
      */
     function getViewer($action)
     {
         if ($this->parentController) {
-            if (is_numeric($action)) $action = 'view';
+            if (is_numeric($action)) {
+                $action = 'view';
+            }
             $viewer = $this->parentController->getViewer($action);
             $layoutTemplate = null;
             // action-specific template with template identifier, e.g. themes/mytheme/templates/Layout/MyModel_view.ss
-            $layoutTemplate = SSViewer::getTemplateFileByType($this->stat('recordType') . "_$action", 'Layout');
+            $layoutTemplate = SSViewer::getTemplateFileByType($this->config()->get('recordType') . "_$action",
+                'Layout');
             // generic template with template identifier, e.g. themes/mytheme/templates/Layout/MyModel.ss
-            if (!$layoutTemplate) $layoutTemplate = SSViewer::getTemplateFileByType($this->stat('recordType'), 'Layout');
+            if (!$layoutTemplate) {
+                $layoutTemplate = SSViewer::getTemplateFileByType($this->config()->get('recordType'), 'Layout');
+            }
 
             // fallback to controller classname, e.g. iwidb/templates/Layout/NestedCollectionController.ss
             $parentClass = $this->class;
             while ($parentClass != Controller::class && !$layoutTemplate) {
                 $layoutTemplate = SSViewer::getTemplateFileByType("{$parentClass}_$action", 'Layout');
-                if (!$layoutTemplate) $layoutTemplate = SSViewer::getTemplateFileByType($parentClass, 'Layout');
+                if (!$layoutTemplate) {
+                    $layoutTemplate = SSViewer::getTemplateFileByType($parentClass, 'Layout');
+                }
                 $parentClass = get_parent_class($parentClass);
             }
             if ($layoutTemplate) {
@@ -262,7 +279,8 @@ class NestedCollectionController extends Controller
      */
     public function CreationForm()
     {
-        $fields = singleton($this->stat('recordType'))->getFrontEndFields();
+        /** @var FieldList $fields */
+        $fields = singleton($this->config()->get('recordType'))->getFrontEndFields();
         $fields->push(new HiddenField('ID'));
         $form = new Form(
             $this,
@@ -280,8 +298,8 @@ class NestedCollectionController extends Controller
      */
     public function doSave($data, $form)
     {
-        $recordType = $this->stat('recordType');
-        $record = new $recordType();
+        $recordType = $this->config()->get('recordType');
+        $record = $recordType::create();
         $form->saveInto($record);
         $record->write();
         $this->redirect($this->Link());
@@ -332,7 +350,8 @@ class NestedCollectionController extends Controller
         $parts = explode(self::$breadcrumbs_delimiter, $this->parentController->Breadcrumbs());
         // The last part is never a link, need to recreate
         array_pop($parts);
-        array_push($parts, '<a href="' . $this->parentController->Link() . '">' . $this->parentController->Title . '</a>');
+        array_push($parts,
+            '<a href="' . $this->parentController->Link() . '">' . $this->parentController->Title . '</a>');
 
         //Merge
         array_pop($this->crumbs);
@@ -346,22 +365,22 @@ class NestedCollectionController extends Controller
     }
 
     /**
-     * Generates a DataObjectSet of anonymous objects that can be used
+     * Generates a ArrayList of anonymous objects that can be used
      * to create an alphabet menu for all the items, linking only
      * when there are items begining with the letter, and providing
      * an indication of whether it is currently selected or not
      *
-     * @return DataObjectSet
+     * @return ArrayList
      */
     public function AlphabetPages()
     {
         $query = new SQLSelect();
         $pages = new ArrayList();
 
-        $sortOn = $this->stat('sort_on');
+        $sortOn = $this->config()->get('sort_on');
         //Build an SQL query to get all the letters that people start with
         $query->select(array("Left($sortOn, 1) AS Letter"));
-        $query->from($this->stat('recordType'));
+        $query->from($this->config()->get('recordType'));
         $query->groupBy(array('Letter'));
         $lettersFound = $query->execute()->column();
 
@@ -375,8 +394,35 @@ class NestedCollectionController extends Controller
             )
         );
 
-        foreach (array('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
-                     'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0') as $letter) {
+        foreach (array(
+                     'A',
+                     'B',
+                     'C',
+                     'D',
+                     'E',
+                     'F',
+                     'G',
+                     'H',
+                     'I',
+                     'J',
+                     'K',
+                     'L',
+                     'M',
+                     'N',
+                     'O',
+                     'P',
+                     'Q',
+                     'R',
+                     'S',
+                     'T',
+                     'U',
+                     'V',
+                     'W',
+                     'X',
+                     'Y',
+                     'Z',
+                     '0'
+                 ) as $letter) {
 
             $letterFound = in_array($letter, $lettersFound);
 
