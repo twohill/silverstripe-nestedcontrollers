@@ -7,7 +7,6 @@ use SilverStripe\ORM\Queries\SQLSelect;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\Control\Controller;
 use SilverStripe\Control\HTTPRequest;
-use SilverStripe\Core\Convert;
 use SilverStripe\ORM\PaginatedList;
 use SilverStripe\View\SSViewer;
 use SilverStripe\Forms\HiddenField;
@@ -31,15 +30,31 @@ use SilverStripe\View\ArrayData;
  */
 class NestedCollectionController extends Controller
 {
-    /**
-     * These should be overridden in subclasses
-     */
-    protected static $recordController = NestedModelController::class;
-    protected static $recordType = DataObject::class;
 
-    public static $results_per_page = 20;
-    public static $sort_on = "Name";
-    public static $breadcrumbs_delimiter = " &raquo; ";
+    /**
+     * @config
+     */
+    private static $recordController = NestedModelController::class;
+
+    /**
+     * @config
+     */
+    private static $recordType = DataObject::class;
+
+    /**
+     * @config
+     */
+    private static $results_per_page = 20;
+
+    /**
+     * @config
+     */
+    private static $sort_on = "Name";
+
+    /**
+     * @config
+     */
+    private static $breadcrumbs_delimiter = " &raquo; ";
 
     protected $crumbs = array();
     protected $parentController;
@@ -66,8 +81,8 @@ class NestedCollectionController extends Controller
     function handleActionOrID($request)
     {
         if (is_numeric($request->param('Action'))) {
-            $controller = $this->config()->get('recordController');
-            return new $controller($this, $this->config()->get('recordType'), $request);
+            $controller = $this->config()->recordController;
+            return new $controller($this, $this->getRecordType(), $request);
         } else {
             return $this->handleAction($request, null);
         }
@@ -148,7 +163,7 @@ class NestedCollectionController extends Controller
     public function getAllRecords()
     {
         /* @var DataObject $recordType */
-        $recordType = $this->config()->get('recordType');
+        $recordType = $this->getRecordType();
         $all = $recordType::get()->filterByCallBack(function (DataObject $obj) {
             return $obj->canView();
         });
@@ -164,7 +179,7 @@ class NestedCollectionController extends Controller
      */
     public function getEditableRecords()
     {
-        $recordType = $this->config()->get('recordType');
+        $recordType = $this->getRecordType();
         $all = $recordType::get()->filterByCallBack(function (DataObject $obj) {
             return $obj->canEdit();
         });
@@ -178,7 +193,7 @@ class NestedCollectionController extends Controller
      */
     public function getRecordType()
     {
-        return $this->config()->get('recordType');
+        return $this->config()->recordType;
     }
 
     /**
@@ -214,7 +229,7 @@ class NestedCollectionController extends Controller
      */
     public function canCreate($member = null)
     {
-        return singleton($this->config()->get('recordType'))->canCreate($member);
+        return singleton($this->getRecordType())->canCreate($member);
     }
 
     /**
@@ -229,7 +244,7 @@ class NestedCollectionController extends Controller
             return $this->httpError(403, "You do not have permission to create new " . $this->getPluralName());
         }
         $this->addCrumb('Create new ' . $this->getSingularName());
-        return $this->customise(array('Form' => $this->CreationForm()));
+        return $this->customise(['Form' => $this->CreationForm()]);
     }
 
     /**
@@ -247,11 +262,11 @@ class NestedCollectionController extends Controller
             $viewer = $this->parentController->getViewer($action);
             $layoutTemplate = null;
             // action-specific template with template identifier, e.g. themes/mytheme/templates/Layout/MyModel_view.ss
-            $layoutTemplate = SSViewer::getTemplateFileByType($this->config()->get('recordType') . "_$action",
+            $layoutTemplate = SSViewer::getTemplateFileByType($this->getRecordType() . "_$action",
                 'Layout');
             // generic template with template identifier, e.g. themes/mytheme/templates/Layout/MyModel.ss
             if (!$layoutTemplate) {
-                $layoutTemplate = SSViewer::getTemplateFileByType($this->config()->get('recordType'), 'Layout');
+                $layoutTemplate = SSViewer::getTemplateFileByType($this->getRecordType(), 'Layout');
             }
 
             // fallback to controller classname, e.g. iwidb/templates/Layout/NestedCollectionController.ss
@@ -280,7 +295,7 @@ class NestedCollectionController extends Controller
     public function CreationForm()
     {
         /** @var FieldList $fields */
-        $fields = singleton($this->config()->get('recordType'))->getFrontEndFields();
+        $fields = singleton($this->getRecordType())->getFrontEndFields();
         $fields->push(new HiddenField('ID'));
         $form = new Form(
             $this,
@@ -298,7 +313,7 @@ class NestedCollectionController extends Controller
      */
     public function doSave($data, $form)
     {
-        $recordType = $this->config()->get('recordType');
+        $recordType = $this->getRecordType();
         $record = $recordType::create();
         $form->saveInto($record);
         $record->write();
@@ -377,10 +392,10 @@ class NestedCollectionController extends Controller
         $query = new SQLSelect();
         $pages = new ArrayList();
 
-        $sortOn = $this->config()->get('sort_on');
+        $sortOn = $this->config()->sort_on;
         //Build an SQL query to get all the letters that people start with
         $query->select(array("Left($sortOn, 1) AS Letter"));
-        $query->from($this->config()->get('recordType'));
+        $query->from($this->getRecordType());
         $query->groupBy(array('Letter'));
         $lettersFound = $query->execute()->column();
 
