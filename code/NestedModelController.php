@@ -194,7 +194,7 @@ class NestedModelController extends Controller
             if (!$layoutTemplate) $layoutTemplate = SSViewer::getTemplateFileByType($this->recordType, 'Layout');
 
             // fallback to controller classname, e.g. iwidb/templates/Layout/NestedModelController.ss
-            $parentClass = $this->class;
+            $parentClass = static::class;
             while ($parentClass != Controller::class && !$layoutTemplate) {
                 $layoutTemplate = SSViewer::getTemplateFileByType("{$parentClass}_$action", 'Layout');
                 if (!$layoutTemplate) $layoutTemplate = SSViewer::getTemplateFileByType($parentClass, 'Layout');
