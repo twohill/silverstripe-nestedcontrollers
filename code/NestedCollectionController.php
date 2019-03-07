@@ -270,7 +270,7 @@ class NestedCollectionController extends Controller
             }
 
             // fallback to controller classname, e.g. iwidb/templates/Layout/NestedCollectionController.ss
-            $parentClass = $this->class;
+            $parentClass = static::class;
             while ($parentClass != Controller::class && !$layoutTemplate) {
                 $layoutTemplate = SSViewer::getTemplateFileByType("{$parentClass}_$action", 'Layout');
                 if (!$layoutTemplate) {
