@@ -72,14 +72,22 @@ class NestedModelController extends Controller
     {
         if ($this->hasMethod($funcName = "get$field")) {
             return $this->$funcName();
-        } else if ($this->hasField($field)) {
-            return $this->getField($field);
-        } else if ($field == $this->recordType) {
-            return $this->currentRecord;
-        } else if ($this->failover) {
-            return $this->failover->$field;
-        } else if ($this->parentController) {
-            return $this->parentController->__get($field);
+        } else {
+            if ($this->hasField($field)) {
+                return $this->getField($field);
+            } else {
+                if ($field == $this->recordType) {
+                    return $this->currentRecord;
+                } else {
+                    if ($this->failover) {
+                        return $this->failover->$field;
+                    } else {
+                        if ($this->parentController) {
+                            return $this->parentController->__get($field);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -87,8 +95,10 @@ class NestedModelController extends Controller
     {
         if ($this->hasMethod($funcName)) {
             return call_user_func_array(array(&$this, $funcName), $args);
-        } else if ($this->parentController->hasMethod($funcName)) {
-            return call_user_func_array(array(&$this->parentController, $funcName), $args);
+        } else {
+            if ($this->parentController->hasMethod($funcName)) {
+                return call_user_func_array(array(&$this->parentController, $funcName), $args);
+            }
         }
     }
 
@@ -184,20 +194,26 @@ class NestedModelController extends Controller
     function getViewer($action)
     {
         if ($this->parentController) {
-            if (is_numeric($action)) $action = 'view';
+            if (is_numeric($action)) {
+                $action = 'view';
+            }
             $viewer = $this->parentController->getViewer($action);
             $layoutTemplate = null;
             // action-specific template with template identifier, e.g. themes/mytheme/templates/Layout/MyModel_view.ss
             $layoutTemplate = SSViewer::getTemplateFileByType("{$this->recordType}_$action", 'Layout');
 
             // generic template with template identifier, e.g. themes/mytheme/templates/Layout/MyModel.ss
-            if (!$layoutTemplate) $layoutTemplate = SSViewer::getTemplateFileByType($this->recordType, 'Layout');
+            if (!$layoutTemplate) {
+                $layoutTemplate = SSViewer::getTemplateFileByType($this->recordType, 'Layout');
+            }
 
             // fallback to controller classname, e.g. iwidb/templates/Layout/NestedModelController.ss
             $parentClass = static::class;
             while ($parentClass != Controller::class && !$layoutTemplate) {
                 $layoutTemplate = SSViewer::getTemplateFileByType("{$parentClass}_$action", 'Layout');
-                if (!$layoutTemplate) $layoutTemplate = SSViewer::getTemplateFileByType($parentClass, 'Layout');
+                if (!$layoutTemplate) {
+                    $layoutTemplate = SSViewer::getTemplateFileByType($parentClass, 'Layout');
+                }
                 $parentClass = get_parent_class($parentClass);
             }
 
@@ -225,7 +241,7 @@ class NestedModelController extends Controller
         }
 
         $fields->push(new HiddenField('ID'));
-        $form = new Form($this, Form::class, $fields, new FieldList(new FormAction('doSave', 'Save')), $required);
+        $form = new Form($this, __function__, $fields, new FieldList(new FormAction('doSave', 'Save')), $required);
         if ($this->currentRecord) {
             $form->loadDataFrom($this->currentRecord);
         }
@@ -290,7 +306,8 @@ class NestedModelController extends Controller
         $parts = explode(self::$breadcrumbs_delimiter, $this->parentController->Breadcrumbs());
         // The last part is never a link, need to recreate
         array_pop($parts);
-        array_push($parts, '<a href="' . $this->parentController->Link() . '">' . $this->parentController->Title . '</a>');
+        array_push($parts,
+            '<a href="' . $this->parentController->Link() . '">' . $this->parentController->Title . '</a>');
 
         //Merge
         array_pop($this->crumbs);
